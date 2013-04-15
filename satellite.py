@@ -15,8 +15,8 @@ class Satellite(object):
 		self.y = y
 		self.z = z
 		#Speed
-		self.vx = 0.001
-		self.vy = 0.002
+		self.vx = 0
+		self.vy = 0
 		#Mass
 		self.mass = mass
 		#Acceleration
