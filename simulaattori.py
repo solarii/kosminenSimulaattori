@@ -4,10 +4,13 @@
 import direct.directbase.DirectStart #Panda initialize
 from panda3d.core import Vec3, Vec4, Point3, LineSegs #Modules
 from direct.gui.DirectGui import * #The GUI objects
-from satellite import Satellite #The actual gravity simulation
+from satellite import Satellite, State, Derivative #The actual gravity simulation
 from direct.task import Task
 from direct.showbase import DirectObject
 import sys
+
+t, dt = 0., 1.
+i = False
 
 class Universe:  #This is our main class
     def __init__(self, satelliteList):
@@ -33,6 +36,7 @@ class Universe:  #This is our main class
         #self.rotateSatellites()
 
         taskMgr.add(self.moveSatellites, 'Move satellites')
+        # taskMgr.doMethodLater(0.01, self.drawLines, 'Draw Orbits')
 
     def loadSatellites(self):
 
@@ -51,9 +55,9 @@ class Universe:  #This is our main class
             satellite.sphere = loader.loadModel("models/planet_sphere")
             if satellite == sun:
                 satellite.texture = loader.loadTexture("models/sun_1k_tex.jpg")
-            elif satellite.mass > 2:
+            elif satellite._m > 2:
                 satellite.texture = loader.loadTexture("models/earth_1k_tex.jpg")
-            elif satellite.mass <= 2:
+            elif satellite._m <= 2:
                 satellite.texture = loader.loadTexture("models/venus_1k_tex.jpg")
             satellite.sphere.setTexture(satellite.texture)
             satellite.sphere.reparentTo(satellite.node)
@@ -61,9 +65,8 @@ class Universe:  #This is our main class
                 satellite.sphere.setScale(2)
             else:
                 satellite.sphere.setScale(1)
-                satellite.vx = -0.04
-                satellite.vy = 0.08
-            satellite.node.setPos(satellite.x, satellite.y, satellite.z)
+
+            satellite.node.setPos(satellite._st._x, satellite._st._y, 0)
 
     # def rotateSatellites(self):
     #     self.day_period_sun = self.sun.hprInterval(40, Vec3(360, 0, 0))
@@ -81,32 +84,46 @@ class Universe:  #This is our main class
     #     self.orbit_period_moon.loop()
 
     def moveSatellites(self, task):
-        i = False
+        # i = False
+        # a = False
+        # counter = 0
         for p1 in self.satellites:
             if p1 is sun:
                 continue
-            for p2 in self.satellites:
-                if p2 is p1:
-                    continue
-                p1.addAcceleration(p2)
-            p1.updatePosition()
-            p1.node.setPos(p1.x, p1.y, p1.z)
-            self.points.append( p1.node.getPos( ) )
-            print str(p1.name) + ' x-coordinate: ' + str(p1.x)
-            print str(p1.name) + ' y-coordinate: ' + str(p1.y)
-            print 'X-speed: ' + str(p1.vx)
-            print 'Y-speed: ' + str(p1.vy)
-            if i is False:
-                render.attachNewNode( self.create( ) )
-                i = True
+            p1.updatePlanet(t, dt)
+            p1.node.setPos(p1._st._x, p1._st._y, 0)
+
+        #     if counter % 1e32 == 0:
+        #         print "Added point"
+        #         p1.points.append( p1.node.getPos( ) )
+
+        #     if i or a is False:
+        #         node = self.create(p1)
+        #         render.attachNewNode(node)
+        #         if i is True:
+        #             a = False
+        #         i = True
+        # counter += 1
         return task.cont
 
-    def create( self ):
+    def drawLines(self, task):
+        global i
+        earth.points.append(earth.node.getPos())
+        if i is False:
+            node = self.create(earth)
+            render.attachNewNode(node)
+            i = True
+            print "Derb"
+        print i, task.delayTime
+        return task.again
+
+    def create(self, s):
         segs = LineSegs( )
         segs.setThickness( 2.0 )
-        segs.setColor( Vec4(1,1,0,1) )
-        segs.moveTo( self.points[0] )
-        for p in self.points[1:]: segs.drawTo( p )
+        segs.setColor( Vec4(1,0,0,1) )
+        segs.moveTo( s.points[0] )
+        for p in s.points[1:]:
+            segs.drawTo( p )
         return segs.create( )
 
 class Camera(DirectObject.DirectObject):
@@ -121,12 +138,16 @@ class Camera(DirectObject.DirectObject):
 
 c = Camera()
 
-
 starList = []
-venus = Satellite('Venus', -15, -30, 0, 2)
-earth = Satellite('Earth', 30, 30, 0, 3)
-sun = Satellite('Sun', 0, 0, 0, 1600)
-#starList.append(venus)
+
+earthState = State(30, 30, -0.04, 0.08)
+venusState = State(8, 10, -0.04, 0.08)
+sunState = State(0, 0, 0, 0)
+
+venus = Satellite('Venus', venusState, 1, starList)
+earth = Satellite('Earth', earthState, 3, starList)
+sun = Satellite('Sun', sunState, 1600, starList)
+starList.append(venus)
 starList.append(earth)
 starList.append(sun)
 
